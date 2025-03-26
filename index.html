@@ -1,0 +1,930 @@
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/3.4.2/gl-matrix-min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+<style>
+  *{
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: "Roboto Mono" !important;
+  }
+  #c{
+    width: 100vw;
+    height: 100vh;
+  }
+  .hidden{
+    display: none;
+  }
+  #menu{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    color: #EEE;
+    background: black;
+    font-size: 3vmin;
+    text-align: center;
+  }
+  h1{
+    font-size: 8vmin;
+  }
+  input{
+    font-size: 3vmin;
+    color: #EEE;
+    background: black;
+    outline: none;
+    border: 0 solid white;
+    padding: 1vmin;
+    margin-bottom: 1vmin;
+    transition: border .2s, margin .2s;
+    box-sizing: border-box;
+  }
+  input:focus{
+    border-bottom: 1vmin solid white;
+    margin-bottom: 0;
+  }
+  #start{
+    border: .2vmin solid #EEE;
+    padding: 1vmin;
+    display: inline-block;
+    cursor: pointer;
+    float: right;
+    transform: translateX(200%);
+    transition: transform .2s;
+  }
+  #start.ready{
+    transform: translateX(0);
+  }
+  #start:hover{
+    background: #EEE;
+    color: #111;
+  }
+  .team{
+    display: inline-block;
+    box-sizing: border-box;
+    border: 0 solid black;
+    height: 8vmin;
+    width: 8vmin;
+    cursor: pointer;
+    margin: 3vmin;
+    transition: border .2s, box-shadow .2s, transform .2s;
+    box-shadow: 0 0 1vmin black;
+  }
+  .team:hover{
+    box-shadow: 0.3vmin 0.3vmin 1vmin black;
+    transform: scale(1.1);
+  }
+  .team.selected{
+    border: 1vmin solid white;
+  }
+  .team.R{
+    background: #ff3624;
+  }
+  .team.B{
+    background: #2433ff;
+  }
+  #container{
+    display: inline-block;
+    text-align: left;
+    background: #111;
+    box-sizing: border-box;
+    padding: 3vmin;
+    height: 100%;
+  }
+  #crosshair{
+    image-rendering: pixelated;
+    position: fixed;
+    top: 50vh;
+    left: 50vw;
+    transform: translate(-50%, -50%);
+    height: 3vmin;
+    mix-blend-mode: difference;
+  }
+  #healthc{
+    position: fixed;
+    top: 3vmin;
+    right: 3vmin;
+    width: 30vmin;
+    height: 5vmin;
+    padding: 1vmin;
+    background: black;
+  }
+  #healthbar{
+    width: 100%;
+    height: 100%;
+    background: #16fa2d;
+    transition: width .2s;
+  }
+  .pLabels{
+    position: fixed;
+    color: white;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 1vmin;
+    font-size: 3vmin;
+    transform: translate(-50%, -50%);
+    display: inline-block;
+    white-space: nowrap;
+  }
+</style>
+<title>WebGL Shooter Game</title>
+
+<canvas id="c"></canvas>
+
+<img id="crosshair" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAcAAAAHCAYAAADEUlfTAAAAAXNSR0IArs4c6QAAACdJREFUGFdjZEAC/////8/IyMgIE4IzQAKkSYJUIxuNzKbAWHyuBQBMdhwEzsARTgAAAABJRU5ErkJggg==">
+<div id="healthc">
+  <div id="healthbar"></div>
+</div>
+<div id="menu">
+  <div id="container">
+    <h1>WebGL Shooter Game!</h1>
+    <br/>
+    <input id="name" placeholder="Choose your name!" autocomplete="off">
+    <br/>
+    <br/>
+    Choose your team:
+    <br/>
+    <div class="team R" onclick="myTeam = 'R'; updateMenuTeam()"></div><div class="team B" onclick="myTeam = 'B'; updateMenuTeam()"></div>
+    <br/>
+    <br/>
+    <div id="start" onclick="startGame()">Start Game!</div>
+  </div>
+</div>
+
+<img src="whiteboard.png" class="hidden" id="whiteboard">
+<img src="grass_texture.png" class="hidden" id="grass">
+<img src="concrete_texture.png" class="hidden" id="concrete">
+<img src="planks_texture.png" class="hidden" id="planks">
+<img src="signs.png" class="hidden" id="signs">
+<img class="hidden" id="redtex" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAAXNSR0IArs4c6QAAABFJREFUGFdj/G+m/T/U5woDABNhA9ZtJluVAAAAAElFTkSuQmCC">
+<img class="hidden" id="bluetex" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAAXNSR0IArs4c6QAAABFJREFUGFdj1Nb//18zmIEBAA9FAtZLqmXAAAAAAElFTkSuQmCC">
+<img class="hidden" id="guntex" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdj0NXV/Q8AApkBh6SpDkoAAAAASUVORK5CYII=">
+<img class="hidden" id="bullettex" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdj+H1I8D8AB1gCzvXpDGUAAAAASUVORK5CYII=">
+
+<script id="vertShader" type="x-shader/x-vertex">
+	attribute vec3 Position;
+	attribute vec3 Normal;
+	attribute vec2 UV;
+
+	varying vec3 fNormal;
+	varying vec2 fUV;
+
+	uniform mat4 ModelViewMatrix;
+	uniform mat4 ProjectionMatrix;
+
+	void main(){
+		gl_Position = ProjectionMatrix * ModelViewMatrix * vec4(Position, 1.0);
+		fNormal = Normal;
+		fUV = UV;
+	}
+</script>
+
+<script id="fragShader" type="x-shader/x-fragment">
+  precision mediump float;
+
+	varying vec3 fNormal;
+	varying vec2 fUV;
+
+  uniform sampler2D tex0;
+
+	void main(){
+    vec3 light = normalize(vec3(1, 2, 3));
+    gl_FragColor = vec4(texture2D(tex0, fUV).rgb * (
+      vec3(max(dot(light, fNormal), 0.0)) +
+      vec3(74, 147, 224) / 255.0 * max(0.0, fNormal.y) * 0.3 +
+      vec3(56, 45, 41) / 255.0 * max(0.0, 2.0 - fNormal.y) * 0.3
+    ), 1.0);
+	}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/7.22.1/firebase-app.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/7.22.1/firebase-database.min.js"></script>
+<script>
+  const LOOK_SPEED = 0.001;
+  const PLAYER_SPEED = 0.2;
+  const SPRINT = 1.3;
+  const BULLET_SPEED = 0.75;
+  const BULLET_DIST = 200;
+  const firebaseConfig = {
+    apiKey: "AIzaSyBMc9Pqr73shzzUy-dg_uzCeW5KK4oEOU0",
+    authDomain: "webgl-online-test.firebaseapp.com",
+    projectId: "webgl-online-test",
+    storageBucket: "webgl-online-test.appspot.com",
+    messagingSenderId: "10226747959",
+    appId: "1:10226747959:web:055bebd22f626c12fb8db2"
+  };
+  const app = firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+
+  var c = document.getElementById("c");
+
+  var myTeam = Math.random() < 0.5 ? "R" : "B";
+
+  function updateMenuTeam(){
+    var t = document.getElementsByClassName("team");
+    for(var i = 0; i < 2; i++)
+      t[i].className = t[i].className.includes(myTeam) ? t[i].className.replace("selected", "") + " selected" : t[i].className.replace("selected", "");
+  }
+
+  updateMenuTeam();
+
+  var playerRx = 0, playerRy = 0;
+
+  var me;
+
+  function respawn(){
+    me.data.x = 0;
+    me.data.y = 7; me.data.yv = 0;
+    me.data.z = me.data.team == "R" ? -50 : 50;
+    me.data.r = (playerRy = (me.data.team == "R" ? Math.PI : 0));
+    me.health = 100;
+  }
+
+  var players = {};
+  var pLabels = {};
+  function playerMove(e){
+    var va = e.val();
+    va.name = va.name.substr(0, 32).replace("<", "&lt;");
+    players[e.key] = va;
+  }
+  database.ref("players").on("child_added", playerMove);
+  database.ref("players").on("child_changed", playerMove);
+
+  var bullets = [];
+  var skipFirst = true;
+  database.ref("bullet").on("value", function(e){
+    if(skipFirst)
+      skipFirst = false;
+    else{
+      var b = e.val();
+      b.n = [
+        Math.sin(b.ry) * Math.cos(b.rx),
+        -Math.sin(b.rx),
+        -Math.cos(b.ry) * Math.cos(b.rx)
+      ];
+      var bDist = BULLET_DIST;
+      for(var j = 0; j < ObjectList.length; j++){
+        var gt = ObjectList[j].triangleData;
+        var gn = ObjectList[j].normalData;
+        if(!gt || !gn)
+          continue;
+        for(var i = 0; i < gt.length; i += 9){
+        //   console.log([b.x, b.y, b.z],b.n
+        //     [gt[i + 0], gt[i + 1], gt[i + 2]],
+        //     [gt[i + 3], gt[i + 4], gt[i + 5]],
+        //     [gt[i + 6], gt[i + 7], gt[i + 8]])
+          bDist = Math.min(bDist, triangleLine([b.x, b.y, b.z], b.n,
+            [gt[i + 0], gt[i + 1], gt[i + 2]],
+            [gt[i + 3], gt[i + 4], gt[i + 5]],
+            [gt[i + 6], gt[i + 7], gt[i + 8]]
+          ));
+        }
+      }
+      b.bDist = bDist;
+      bullets.push(b);
+    }
+  });
+
+  function gW(){
+    return window.innerWidth * window.devicePixelRatio;
+  }
+
+  function gH(){
+    return window.innerHeight * window.devicePixelRatio;
+  }
+
+  var width = gW(), height = gH();
+  c.width = width; c.height = height;
+
+  var gl = c.getContext("webgl2");
+  var projMat = glMatrix.mat4.create();
+  var zoomMat = glMatrix.mat4.create();
+  glMatrix.mat4.perspective(projMat, Math.PI / 3, width / height, 0.1, 1000);
+  glMatrix.mat4.perspective(zoomMat, Math.PI / 9, width / height, 0.1, 1000);
+
+  class Shader{
+    constructor(vert, frag){
+      vert = document.getElementById(vert).innerText;
+      frag = document.getElementById(frag).innerText;
+
+      var vShad = gl.createShader(gl.VERTEX_SHADER);
+      gl.shaderSource(vShad, vert);
+      gl.compileShader(vShad);
+
+      if (!gl.getShaderParameter(vShad, gl.COMPILE_STATUS)) {
+        console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(vShad));
+      }
+
+      var fShad = gl.createShader(gl.FRAGMENT_SHADER);
+      gl.shaderSource(fShad, frag);
+      gl.compileShader(fShad);
+
+      if (!gl.getShaderParameter(fShad, gl.COMPILE_STATUS)) {
+        console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(fShad));
+      }
+
+      this.program = gl.createProgram();
+      gl.attachShader(this.program, vShad);
+      gl.attachShader(this.program, fShad);
+      gl.linkProgram(this.program);
+
+      if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
+        console.error('Unable to initialize the shader program: ' + gl.getProgramInfoLog(this.program));
+      }
+
+      this.attributes = {
+        position: gl.getAttribLocation(this.program, "Position"),
+        normal: gl.getAttribLocation(this.program, "Normal"),
+        uv: gl.getAttribLocation(this.program, "UV")
+      }
+      this.uniforms = {
+        projMatrix: gl.getUniformLocation(this.program, "ProjectionMatrix"),
+        modelMatrix: gl.getUniformLocation(this.program, "ModelViewMatrix"),
+        tex0: gl.getUniformLocation(this.program, "tex0")
+      }
+    }
+  }
+
+  var loadingProgress = 0;
+
+  var ObjectList = [];
+  class ObjectGL{
+    loadObj(e){
+      var startTime = performance.now();
+      var m = e.target.response.match(/v .*\n/g), v = [];
+      if(m)
+      for(var i = 0; i < m.length; i++){
+        var mm = m[i].match(/[-\d\.]+/g);
+        v.push([parseFloat(mm[0]), parseFloat(mm[1]), parseFloat(mm[2])]);
+      }
+
+      var m = e.target.response.match(/vt .*\n/g), t = [];
+      if(m)
+      for(var i = 0; i < m.length; i++){
+        var mm = m[i].match(/[-\d\.]+/g);
+        t.push([parseFloat(mm[0]), parseFloat(mm[1])]);
+      }
+
+      var m = e.target.response.match(/vn .*\n/g), n = [];
+      if(m)
+      for(var i = 0; i < m.length; i++){
+        var mm = m[i].match(/[-\d\.]+/g);
+        n.push([parseFloat(mm[0]), parseFloat(mm[1]), parseFloat(mm[2])]);
+      }
+
+      // console.log(v, t, n);
+
+      m = e.target.response.match(/f .*\n/g);
+      var fv = [], fn = [], ft = [], fi = [];
+      if(m)
+      for(var i = 0; i < m.length; i++){
+        var matches = m[i].match(/\d*\/\d*\/\d*/g);
+        for(var j= 0; j < mm.length; j++){
+          var mm = matches[j].split("/");
+          if(mm.length >= 0 && mm[0] != "")
+            fv.push(...v[parseInt(mm[0]) - 1]);
+          else
+            fv.push(0, 0, 0);
+          if(mm.length >= 1 && mm[1] != "")
+            ft.push(...t[parseInt(mm[1]) - 1]);
+          else
+            ft.push(0, 0);
+          if(mm.length >= 2 && mm[2] != "")
+            fn.push(...n[parseInt(mm[2]) - 1]);
+          else
+            fn.push(0, 0, 0);
+          fi.push(fi.length);
+        }
+      }
+
+      // console.log(fv, ft, fn, fi);
+      this.triangleData = fv;
+      this.normalData = fn;
+
+      this.positionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(fv), gl.STATIC_DRAW);
+
+      this.uvBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ft), gl.STATIC_DRAW);
+
+      this.normalBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(fn), gl.STATIC_DRAW);
+
+      this.vertexCount = fi.length;
+      this.indices = gl.createBuffer();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indices);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(fi), gl.STATIC_DRAW);
+      this.ready = true;
+
+      loadingProgress--;
+
+      if(loadingProgress == 0)
+        document.getElementById("start").className = "ready";
+
+      for(var i = 0; i < this.duplicates.length; i++)
+        this.copyTo(this.duplicates[i]);
+    }
+    constructor(obj, shader, img){
+      if(obj){
+        loadingProgress++;
+        var x = new XMLHttpRequest();
+        x.onload = e => this.loadObj(e);
+        x.open("GET", obj);
+        x.send();
+      }else
+        return;
+      this.ready = false;
+      this.position = glMatrix.vec3.create();
+      this.rotMat = glMatrix.mat4.create();
+      ObjectList.push(this);
+
+      this.shader = shader;
+
+      if(img){
+        this.useTexture = true;
+
+        var img = document.getElementById(img);
+        this.tex0 = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.tex0);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        // console.log(img);
+        // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      }
+
+      this.duplicates = [];
+    }
+    render(projMatrix, modelMatrix){
+      if(!this.ready)
+        return;
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+      gl.vertexAttribPointer(this.shader.attributes.position, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(this.shader.attributes.position);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
+      gl.vertexAttribPointer(this.shader.attributes.uv, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(this.shader.attributes.uv);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+      gl.vertexAttribPointer(this.shader.attributes.normal, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(this.shader.attributes.normal);
+
+      var localMat = glMatrix.mat4.create();
+      glMatrix.mat4.translate(localMat, localMat, this.position);
+      glMatrix.mat4.multiply(localMat, localMat, this.rotMat);
+      glMatrix.mat4.multiply(localMat, modelMatrix, localMat);
+
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indices);
+      gl.useProgram(this.shader.program);
+      gl.uniformMatrix4fv(this.shader.uniforms.projMatrix, false, projMatrix);
+      gl.uniformMatrix4fv(this.shader.uniforms.modelMatrix, false, localMat);
+
+      if(this.useTexture){
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.tex0);
+        gl.uniform1i(this.shader.uniforms.tex0, 0);
+      }
+
+      gl.drawElements(gl.TRIANGLES, this.vertexCount, gl.UNSIGNED_SHORT, 0);
+    }
+    duplicate(){
+      var n = new ObjectGL();
+      glMatrix.vec3.copy(n.position, this.position);
+      glMatrix.mat4.copy(n.rotMat, this.rotMat);
+      if(!this.ready){
+        this.duplicates.push(n);
+        return n;
+      }
+      this.copyTo(n);
+      return n;
+    }
+    copyTo(n){
+      n.ready = this.ready;
+      n.shader = this.shader;
+      n.positionBuffer = this.positionBuffer;
+      n.uvBuffer = this.uvBuffer;
+      n.normalBuffer = this.normalBuffer;
+      n.indices = this.indices;
+      n.vertexCount = this.vertexCount;
+      if(n.useTexture = this.useTexture)
+        n.tex0 = this.tex0;
+    }
+  }
+
+  function clamp(a, min, max){
+    return Math.max(min, Math.min(max, a));
+  }
+
+  var ba = glMatrix.vec3.create(), pa = glMatrix.vec3.create(),
+      cb = glMatrix.vec3.create(), pb = glMatrix.vec3.create(),
+      ac = glMatrix.vec3.create(), pc = glMatrix.vec3.create(),
+      v  = glMatrix.vec3.create(), nor= glMatrix.vec3.create();
+  function triangleDist(p, a, b, c){ // algorithm from https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
+
+    glMatrix.vec3.sub(ba, b, a); glMatrix.vec3.sub(pa, p, a);
+    glMatrix.vec3.sub(cb, c, b); glMatrix.vec3.sub(pb, p, b);
+    glMatrix.vec3.sub(ac, a, c); glMatrix.vec3.sub(pc, p, c);
+    glMatrix.vec3.cross(nor, ba, ac);
+
+    return Math.sqrt(
+      (Math.sign(glMatrix.vec3.dot(glMatrix.vec3.cross(v, ba, nor), pa)) +
+      Math.sign(glMatrix.vec3.dot(glMatrix.vec3.cross(v, cb, nor), pb)) +
+      Math.sign(glMatrix.vec3.dot(glMatrix.vec3.cross(v, ac, nor), pc)) < 2)
+      ?
+      Math.min(Math.min(
+          glMatrix.vec3.sqrLen(glMatrix.vec3.sub(v, glMatrix.vec3.scale(v, ba,
+            clamp(glMatrix.vec3.dot(ba, pa) / glMatrix.vec3.sqrLen(ba),
+          0, 1)), pa)),
+          glMatrix.vec3.sqrLen(glMatrix.vec3.sub(v, glMatrix.vec3.scale(v, cb,
+            clamp(glMatrix.vec3.dot(cb, pb) / glMatrix.vec3.sqrLen(cb),
+          0, 1)), pb))
+        ),
+        glMatrix.vec3.sqrLen(glMatrix.vec3.sub(v, glMatrix.vec3.scale(v, ac,
+          clamp(glMatrix.vec3.dot(ac, pc) / glMatrix.vec3.sqrLen(ac),
+        0, 1)), pc))
+      )
+    :
+      glMatrix.vec3.dot(nor, pa)**2 / glMatrix.vec3.sqrLen(nor)
+    );
+  }
+
+  var edge1 = glMatrix.vec3.create(), edge2 = glMatrix.vec3.create(),
+      h = glMatrix.vec3.create(), s = glMatrix.vec3.create(), q = glMatrix.vec3.create();
+  function triangleLine(pos, ray, v0, v1, v2){ // algorithm from https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
+    // console.log(p, d, a, b, c);
+    const EPSILON = 0.0000001;
+    glMatrix.vec3.sub(edge1, v1, v0);
+    glMatrix.vec3.sub(edge2, v2, v0);
+    glMatrix.vec3.cross(h, ray, edge2);
+    var a = glMatrix.vec3.dot(edge1, h);
+    if(Math.abs(a) < EPSILON)
+      return BULLET_DIST;
+    var f = 1 / a;
+    glMatrix.vec3.sub(s, pos, v0);
+    var u = f * glMatrix.vec3.dot(s, h);
+    if(u < 0 || u > 1)
+      return BULLET_DIST;
+    glMatrix.vec3.cross(q, s, edge1);
+    var vv = f * glMatrix.vec3.dot(ray, q);
+    if(vv < 0 || u + vv > 1)
+      return BULLET_DIST;
+    var t = f * glMatrix.vec3.dot(edge2, q);
+    return t < EPSILON ? BULLET_DIST : t;
+  }
+
+  var grassObj = new ObjectGL(),
+      cementObj = new ObjectGL(),
+      whiteObj = new ObjectGL(),
+      planksObj = new ObjectGL(),
+      redObj = new ObjectGL(),
+      blueObj = new ObjectGL(),
+      gunObj = new ObjectGL(),
+      bulletObj = new ObjectGL(),
+      signsObj = new ObjectGL();
+
+  window.onload = function(){
+    grassObj = new ObjectGL("grass.obj", new Shader("vertShader", "fragShader"), "grass");
+    cementObj = new ObjectGL("concrete.obj", new Shader("vertShader", "fragShader"), "concrete");
+    whiteObj = new ObjectGL("whiteboard.obj", new Shader("vertShader", "fragShader"), "whiteboard");
+    planksObj = new ObjectGL("planks.obj", new Shader("vertShader", "fragShader"), "planks");
+    redObj = new ObjectGL("player.obj", new Shader("vertShader", "fragShader"), "redtex");
+    blueObj = new ObjectGL("player.obj", new Shader("vertShader", "fragShader"), "bluetex");
+    gunObj = new ObjectGL("gun.obj", new Shader("vertShader", "fragShader"), "guntex");
+    bulletObj = new ObjectGL("bullet.obj", new Shader("vertShader", "fragShader"), "bullettex");
+    signsObj = new ObjectGL("signs.obj", new Shader("vertShader", "fragShader"), "signs");
+  }
+  // var groundObj = new ObjectGL("grass.obj", new Shader("vertShader", "fragShader"), "grass");
+  // groundobj.position[0] = -1;
+  // groundobj.position[1] = -1;
+
+  var keys = [0, 0, 0, 0, 0, 0];
+  var mouse = [0, 0];
+  window.onkeydown = function(e){
+    switch(e.code){
+      case "KeyW":
+      case "ArrowUp":
+        keys[0] = 1;
+        break;
+      case "KeyA":
+      case "ArrowLeft":
+        keys[1] = 1;
+        break;
+      case "KeyS":
+      case "ArrowDown":
+        keys[2] = 1;
+        break;
+      case "KeyD":
+      case "ArrowRight":
+        keys[3] = 1;
+        break;
+      case "Space":
+        keys[4] = 1;
+        break;
+      case "ShiftLeft":
+      case "ShiftRight":
+        keys[5] = 1;
+        break;
+    }
+  }
+
+  window.onkeyup = function(e){
+    switch(e.code){
+      case "KeyW":
+      case "ArrowUp":
+        keys[0] = 0;
+        break;
+      case "KeyA":
+      case "ArrowLeft":
+        keys[1] = 0;
+        break;
+      case "KeyS":
+      case "ArrowDown":
+        keys[2] = 0;
+        break;
+      case "KeyD":
+      case "ArrowRight":
+        keys[3] = 0;
+        break;
+      case "Space":
+        keys[4] = 0;
+        break;
+      case "ShiftLeft":
+      case "ShiftRight":
+        keys[5] = 0;
+        break;
+    }
+  }
+
+
+  // var otherObj = testObj.duplicate();
+  // console.log(otherObj);
+  // otherObj.position[0] = 1;
+  // otherObj.position[1] = 1;
+
+  function render(){
+    requestAnimationFrame(render);
+
+    if(gW() != width || gH() != height){
+      width = gW();
+      height = gH();
+      c.width = width; c.height = height;
+
+      console.log(width, height);
+
+      gl.viewport(0, 0, width, height);
+      glMatrix.mat4.perspective(projMat, Math.PI / 3, width / height, 0.1, 1000);
+      glMatrix.mat4.perspective(zoomMat, Math.PI / 9, width / height, 0.1, 1000);
+    }
+
+    gl.clearColor(74 / 255, 147 / 255, 224 / 255, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+
+    me.data.r = playerRy;
+    me.data.timestamp = Date.now();
+
+    if(keys[0]){
+      me.data.x += Math.sin(playerRy) * PLAYER_SPEED * (keys[5] ? SPRINT : 1);
+      me.data.z -= Math.cos(playerRy) * PLAYER_SPEED * (keys[5] ? SPRINT : 1);
+    }
+    if(keys[1]){
+      me.data.x -= Math.cos(playerRy) * PLAYER_SPEED;
+      me.data.z -= Math.sin(playerRy) * PLAYER_SPEED;
+    }
+    if(keys[2]){
+      me.data.x -= Math.sin(playerRy) * PLAYER_SPEED;
+      me.data.z += Math.cos(playerRy) * PLAYER_SPEED;
+    }
+    if(keys[3]){
+      me.data.x += Math.cos(playerRy) * PLAYER_SPEED;
+      me.data.z += Math.sin(playerRy) * PLAYER_SPEED;
+    }
+
+    if(mouse[0]){
+      mouse[0] = 0;
+
+      database.ref("bullet").set({
+        x: me.data.x,
+        y: me.data.y + 1,
+        z: me.data.z,
+        rx: playerRx,
+        ry: playerRy,
+        from: me.ref.key
+      });
+    }
+
+    me.data.yv -= 0.01;
+    var onGround = 0;
+    for(var j = 0; j < ObjectList.length; j++){
+      var gt = ObjectList[j].triangleData;
+      var gn = ObjectList[j].normalData;
+      if(!gt || !gn)
+        continue;
+      for(var i = 0; i < gt.length; i += 9){
+        var t = triangleDist([me.data.x, me.data.y, me.data.z],
+          [gt[i + 0], gt[i + 1], gt[i + 2]],
+          [gt[i + 3], gt[i + 4], gt[i + 5]],
+          [gt[i + 6], gt[i + 7], gt[i + 8]]
+        );
+        if(t < 1){
+          me.data.x += gn[i + 0] * (1 - t);
+          me.data.y += (gn[i + 1] < 0.7 ? 0 : gn[i + 1]) * (1 - t);
+          me.data.z += gn[i + 2] * (1 - t);
+          // console.log(i);
+          // marker.position = [gt[i + 0], gt[i + 1], gt[i + 2]];
+          // marker1.position = [gt[i + 3], gt[i + 4], gt[i + 5]];
+          // marker2.position = [gt[i + 6], gt[i + 7], gt[i + 8]];
+        }
+        if(t < 1.1){
+          me.data.yv -= me.data.yv * (gn[i + 1] < 0.7 ? 0 : gn[i + 1]);
+          onGround += (gn[i + 1] < 0.7 ? 0 : gn[i + 1]);
+        }
+      }
+    }
+
+    if(onGround > 0.5 && keys[4])
+      me.data.yv = 0.2;
+    me.data.y += me.data.yv;
+    if(me.data.y < -20)
+      respawn();
+    document.getElementById("healthbar").style.width = me.health + "%";
+    if(me.health <= 0)
+      respawn();
+
+    var modelMat = glMatrix.mat4.create();
+    glMatrix.mat4.rotate(modelMat, modelMat, playerRx, [1, 0, 0]);
+    glMatrix.mat4.rotate(modelMat, modelMat, playerRy, [0, 1, 0]);
+    glMatrix.mat4.translate(modelMat, modelMat, [-me.data.x, -me.data.y - 1, -me.data.z]);
+
+    for(var i = 0; i < ObjectList.length; i++)
+      ObjectList[i].render(mouse[1] ? zoomMat : projMat, modelMat);
+
+    players[me.ref.key] = me.data;
+    for(i in players){
+        var p = players[i];
+        if(!p.timestamp || Date.now() - p.timestamp >= 5000){
+          database.ref("players/" + i).set({});
+          delete players[i];
+          continue;
+        }
+
+        if(i != me.ref.key && !pLabels[i]){
+          var PL = document.createElement("DIV");
+          PL.className = "pLabels";
+          PL.innerHTML = p.name;
+          document.body.appendChild(PL);
+          pLabels[i] = PL;
+        }
+
+        if(i != me.ref.key){
+          var o = players[i].team == "R" ? redObj : blueObj;
+          o.position = [p.x, p.y, p.z];
+          glMatrix.mat4.identity(o.rotMat);
+          glMatrix.mat4.rotate(o.rotMat, o.rotMat, -p.r, [0, 1, 0]);
+          o.render(mouse[1] ? zoomMat : projMat, modelMat);
+        }
+
+        gunObj.position = [p.x, p.y, p.z];
+        glMatrix.mat4.identity(gunObj.rotMat);
+        glMatrix.mat4.rotate(gunObj.rotMat, gunObj.rotMat, -p.r, [0, 1, 0]);
+        gunObj.render(mouse[1] ? zoomMat : projMat, modelMat);
+    }
+
+    for(i in pLabels){
+      if(!players[i]){
+        pLabels[i].remove();
+        delete pLabels[i];
+      }else{
+        if(Math.hypot(me.data.x - players[i].x, me.data.y - players[i].y, me.data.z - players[i].z) < 20){
+          var pv = glMatrix.vec4.fromValues(players[i].x, players[i].y + 2, players[i].z, 1);
+          glMatrix.vec4.transformMat4(pv, pv, modelMat);
+          glMatrix.vec4.transformMat4(pv, pv, mouse[1] ? zoomMat : projMat);
+          pLabels[i].style.display = "";
+          if(pv[2] < 0)
+            pLabels[i].style.display = "none";
+          pLabels[i].style.left = (pv[0] / pv[2] + 1) / 2 * 100 + "vw";
+          pLabels[i].style.top = -(pv[1] / pv[2] - 1) / 2 * 100 + "vh";
+        }else
+          pLabels[i].style.display = "none";
+      }
+    }
+
+    redObj.position = [0, -20, 0];
+    blueObj.position = [0, -20, 0];
+    gunObj.position = [0, -20, 0];
+    bulletObj.position = [0, -20, 0];
+
+    bulletloop:
+    for(var z = 0; z < bullets.length; z++){
+      // bulletObj.position = [0, -20, 0];
+      var b = bullets[z];
+
+      b.bDist -= BULLET_SPEED;
+      if(b.bDist < 0){
+        bullets.splice(z--, 1);
+        continue;
+      }
+
+      b.x += b.n[0] * BULLET_SPEED;
+      b.y += b.n[1] * BULLET_SPEED;
+      b.z += b.n[2] * BULLET_SPEED;
+
+      for(var i in players){
+        if(i == b.from)
+          continue;
+        var p = players[i];
+        var ty = b.y;
+        if(b.y > p.y)
+          ty = Math.max(p.y, b.y - 1); // bean shape
+        if(Math.sqrt((p.x - b.x)**2 + (p.y - ty)**2 + (p.z - b.z)**2) < 1){
+          console.log(i);
+          if(i == me.ref.key)
+            me.health -= Math.random() * 30 + 10;
+          bullets.splice(z--, 1);
+          continue bulletloop;
+        }
+      }
+
+      bulletObj.position = [b.x, b.y, b.z];
+      glMatrix.mat4.identity(bulletObj.rotMat);
+      glMatrix.mat4.rotate(bulletObj.rotMat, bulletObj.rotMat, -b.ry, [0, 1, 0]);
+      glMatrix.mat4.rotate(bulletObj.rotMat, bulletObj.rotMat, -b.rx, [1, 0, 0]);
+      bulletObj.render(mouse[1] ? zoomMat : projMat, modelMat);
+    }
+
+    me.ref.set(me.data);
+  }
+
+  var mouseLocked = false;
+  c.onclick = function(e){
+    if(!mouseLocked)
+      c.requestPointerLock();
+  }
+
+  c.onmousedown = function(e){
+    if(!mouseLocked)
+      return;
+    if(e.button == 0)
+      mouse[0] = 1;
+    else if(e.button == 2)
+      mouse[1] = 1;
+  }
+
+  c.onmouseup = function(e){
+    if(!mouseLocked)
+      return;
+    if(e.button == 0)
+      mouse[0] = 0;
+    else if(e.button == 2)
+      mouse[1] = 0;
+  }
+
+  // document.addEventListener("pointerlockchange", lockChange);
+  // document.addEventListener("mozpointerlockchange", lockChange);
+
+  document.onpointerlockchange = document.onmozpointerlockchange = function(e){
+    mouseLocked = !!document.pointerLockElement;
+  }
+
+  c.onmousemove = function(e){
+    if(mouseLocked){
+      playerRx += e.movementY * LOOK_SPEED / (mouse[1] ? 3 : 1);
+      playerRy += e.movementX * LOOK_SPEED / (mouse[1] ? 3 : 1);
+      playerRx = clamp(playerRx, -Math.PI / 2, Math.PI / 2);
+      playerRy = playerRy % (2 * Math.PI);
+    }
+  }
+
+  document.getElementById("start").onclick = function(e){
+    c.requestPointerLock();
+    me = {
+      ref: database.ref("players").push(),
+      data: {
+        name: document.getElementById("name").value,
+        x: 0,
+        y: 0,
+        yv: 0,
+        z: 0,
+        r: 0,
+        team: myTeam,
+        timestamp: Date.now()
+      }
+    };
+    respawn();
+    if(me.data.name == "")
+      me.data.name = "Anonymous Impostor";
+    // me.data.z = 0;
+    document.getElementById("menu").style.display = "none";
+    render();
+  }
+</script>
